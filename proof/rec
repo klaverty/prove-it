@@ -1,0 +1,152 @@
+MIT/GNU Scheme running under GNU/Linux
+Type `^C' (control-C) followed by `H' to obtain information about interrupts.
+
+Copyright (C) 2014 Massachusetts Institute of Technology
+This is free software; see the source for copying conditions. There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Image saved on Saturday May 17, 2014 at 2:39:25 AM
+  Release 9.2 || Microcode 15.3 || Runtime 15.7 || SF 4.41 || LIAR/x86-64 4.118
+  Edwin 3.116
+
+1 ]=> (load "load")
+;Loading "load.scm"...
+;  Loading "ghelper.scm"... done
+;  Loading "matcher.scm"... done
+;  Loading "utils.scm"... done
+;  Loading "rule-implementation.scm"... done
+;  Loading "rules.scm"... done
+;  Loading "pattern-operator.scm"... done
+;... done
+;Value: attach-rule!
+
+1 ]=> (define group-axioms
+   (list
+    ;; Associative law of addition
+    (rule '( (?? a) (?? b))
+	  `( ,@a ,1 ,@b ))
+    (rule '( (?? a) 1 (?? b))
+	  `( ,@a  ,@b ))
+    (rule '( (?? a) (?? c) (- ((?? c))) (?? b))
+	  `( ,@a ,1 ,@b ))
+    (rule '( (?? a) (- ((?? c))) (?? c) (?? b))
+	  `( ,@a ,1 ,@b ))))
+;Value: group-axioms
+
+1 ]=> ;;(pp (try-rules '(a) assumptions 
+;;	       (lambda (result fail)
+;;	       (pp result)
+;;		 )
+;;	       (lambda () #f)
+;;	       )) 
+
+(define (try-push outcome start results)
+	;;(pp "try to push")
+	;;(pp results)
+	(let* ((story (cons start (cadr (assoc start results))))
+	       (n-story (length story))
+		(old-vcell (assoc outcome results)))
+	       (if old-vcell
+		(let* ((old-story (cadr old-vcell))
+		       (n-old-story (length old-story)))
+		   (if (< n-story n-old-story)
+			(cons (list outcome story) results)
+			results))
+		  
+		  (cons (list outcome story) results))  ))
+;Value: try-push
+
+1 ]=> (define (deduce vars starters assumptions results)
+  (define gen-assumptions
+    (append 
+     assumptions
+  (let per-var ((vars  vars)
+		(new-assumptions '())) 
+	(if (pair? vars)
+	  (per-var  (cdr vars) 
+		   (cons (rule '( (?? a) 1 (?? b))
+			       `( ,@a ,(car vars) (- ,(car vars)) ,@b ))
+		    (cons
+		     	(rule '( (?? a) 1 (?? b))
+	  		`( ,@a (- ,(car vars)) ,(car vars) ,@b ))
+		     new-assumptions)) )
+	  new-assumptions
+	 )	
+    )))
+  (let per-start ((starters starters)
+		  (assumptions gen-assumptions)
+		  (results results))
+    	;;(pp "per-start")
+	(if (pair? starters)
+	  (let per-assumption ((start (car starters))
+			(new-starters (cdr starters))
+			(assumptions assumptions)
+			(current-assumptions assumptions)
+			(results results))
+	    	;;(pp "per-assumption")
+	    	(if (pair? current-assumptions)
+		  ((car current-assumptions) start
+				     (lambda (outcome f)
+				     (per-assumption start new-starters assumptions (cdr current-assumptions ) (try-push outcome start results)))
+				     (lambda () 
+				      (per-assumption start new-starters assumptions (cdr current-assumptions ) results)))
+		  (per-start new-starters assumptions results)))
+	  results)))
+;Value: deduce
+
+1 ]=> #|
+ (define hypothesis
+   (list (rule '((?? x) a b (?? y)))
+	 `( ,@x a c ,@y ))))
+
+ (define hypothesis
+	(list  (rule '( (?? a) (?? b) (? c))
+	  `( ,@a r ,@b ,c))
+	 (rule '((? c) (?? a) (?? b) )
+	  `(,c ,@a r ,@b))
+
+    (rule '( (?? a) r (?? b) (? c))
+	  `( ,@a  ,@b ,c))
+(rule '((? c) (?? a) r (?? b) )
+	  `(,c ,@a  ,@b))
+
+))
+
+(define assumptions
+   (append group-axioms hypothesis))
+
+(define theorem
+  '((b) (c))
+  )
+|#
+
+(define (proof variables assumptions  theorem-start theorem-end)
+  	
+ 	(let lp ((starters `(,theorem-start))
+		(end theorem-end)
+		(assumptions assumptions)
+		(variables variables)
+		(results `((,theorem-start ()))))
+		(let* ((new-results (deduce variables starters assumptions results))
+		       (vcell (assoc end results)))
+			(if vcell
+			  (cons end (cadr  vcell))
+			  (lp (map car results) end assumptions variables new-results)
+			  )
+		)))
+;Value: proof
+
+1 ]=> (define (ppp lst)
+  	(if (pair? lst)
+	  (let ((new-lst (cdr lst)))
+	    (ppp new-lst)
+	    (pp (car lst))
+	     )
+	  (pp "Proved:"))
+	  )
+;Value: ppp
+
+1 ]=> (ppp (proof '(a b c) group-axioms '(a b (- a b)) '(1))
+
+End of input stream reached.
+Moriturus te saluto.
