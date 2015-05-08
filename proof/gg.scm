@@ -36,6 +36,7 @@
 
 (define (deduce vars starters assumptions results)
   
+  ;; Generate the extra assumptions induced by the free variable that we are using
   (define gen-assumptions
     (append 
      assumptions
@@ -53,6 +54,7 @@
 	 )	
     )))
 
+  ;;Iterate over the set of inference rules and derive from the current set of true theorems (starters) a new set of true theorems (new-starters). Then it recurse over new-starters.
   (let per-start ((starters starters)
 		  (assumptions gen-assumptions)
 		  (results results))
